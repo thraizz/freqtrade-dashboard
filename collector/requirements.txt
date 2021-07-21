@@ -1,0 +1,8 @@
+cachetools
+prometheus-client
+requests
+urllib3
+argparse
+pathlib
+rapidjson
+requests

@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  freqtrade_combinedbinhandcluc:
+    image: freqtradeorg/freqtrade:latest
+    volumes:
+      - "./freqtrade:/freqtrade_data"
+      - "./freqtrade/strategies:/freqtrade/user_data/strategies"
+    command: >
+      trade
+      --config /freqtrade_data/example_binance.json
+    ports:
+      - "3000:3000"
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - grafana:/var/lib/grafana
+    ports:
+      - "8080:3000"
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+  freqtrade_exporter:
+    build: ./collector
+    ports:
+      - "3001:3000"
+volumes:
+  grafana:
+
+networks:
+  default:
+    external:
+      name: metrics
