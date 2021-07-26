@@ -22,6 +22,10 @@ If you want to change this, you have to change the base64 encoded Authorization 
 
 The freqtrade configuration should set `listen_ip_adress` to `0.0.0.0`. The rest can be left as defaults.
 
+After starting the instance, you should be able to visit grafana on localhost:8080. Setup your login credentials, then head over to the settings -> data sources. There, setup a new Prometheus data source. The URL is http://localhost:9090, the rest can remain as default values.
+Once done, you can head over to the dashboard import (http://localhost:8080/dashboard/import) and upload the here included FreqtradeDashboard.json.
+Now you'll see the (more or less) beautiful dashboard!
+
 
 ## Roadmap
 Currently, we make heavy use of the api over direkt requests. This isnt too pretty, as there already is a API client provided by freqtrade.
