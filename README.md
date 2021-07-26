@@ -11,7 +11,7 @@ If you want to integrate the dashboard with your already present freqtrade insta
 I always call this network the `metrics` network.
 You have to create this shared network first by running `docker network create metrics`.
 After this, you can run the example by running `docker-compose up -d`.
-Inspecting the log output of the 
+Inspecting the log output of the docker composition should indicate that everything is up and running.
 
 ## Configuration
 Ideally, we would set the clients over docker-compose vars, but currently they are all defined in the collector/main.py file.
@@ -30,4 +30,7 @@ Now you'll see the (more or less) beautiful dashboard!
 ## Roadmap
 Currently, we make heavy use of the api over direkt requests. This isnt too pretty, as there already is a API client provided by freqtrade.
 In the future it would be nicer to switch to that API client.
+
+The current application structure can be visualized like this:
+![App Diagram](./docs/grafana-freqtrade.png)
 
