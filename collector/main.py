@@ -17,10 +17,11 @@ ch.setLevel(logging.INFO)
 formatter = logging.Formatter("[%(levelname)s]: %(message)s")
 ch.setFormatter(formatter)
 log.addHandler(ch)
+load_dotenv()
 
 BOTS = {
     # "NAME_IN_GRAFANA": "CONTAINER_NAME:PORT"
-    "ExampleBot": "freqtrade_combinedbinhandcluc:3000",
+    "DefaultBot": os.getenv("DEFAULT_BOT"),
 }
 
 
@@ -138,7 +139,7 @@ class Bot:
     def __init__(self, url, name):
         self.name = name
 
-        self.url = "http://" + url + "/api/v1"
+        self.url = os.getenv("HTTP_SCHEME") + "://" + url + "/api/v1"
         self.endpoints = []
 
         try:
@@ -223,7 +224,6 @@ class Collector:
 
 
 if __name__ == "__main__":
-    load_dotenv()
     try:
         parser = argparse.ArgumentParser(
             description=__doc__,

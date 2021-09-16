@@ -28,6 +28,8 @@ services:
     environment:
       - API_USER=freqtrader
       - API_PASSWORD=SuperSecretPassword
+      - DEFAULT_BOT=freqtrade_combinedbinhandcluc:3000
+      - HTTP_SCHEME=http
     ports:
       - "3001:3000"
 volumes:
