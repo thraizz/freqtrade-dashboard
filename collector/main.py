@@ -1,10 +1,12 @@
 import argparse
+import base64
 import logging
 import sys
 import time
+import os
 
 import requests
-
+from dotenv import load_dotenv
 from prometheus_client import Metric, REGISTRY, start_http_server
 
 # logging setup
@@ -15,11 +17,11 @@ ch.setLevel(logging.INFO)
 formatter = logging.Formatter("[%(levelname)s]: %(message)s")
 ch.setFormatter(formatter)
 log.addHandler(ch)
-
+load_dotenv()
 
 BOTS = {
-        # "NAME_IN_GRAFANA": "CONTAINER_NAME:PORT"
-        "ExampleBot": "freqtrade_combinedbinhandcluc:3000",
+    # "NAME_IN_GRAFANA": "CONTAINER_NAME:PORT"
+    "DefaultBot": os.getenv("DEFAULT_BOT"),
 }
 
 
@@ -30,6 +32,7 @@ class Endpoint:
 
     def collectMetrics(self, metric: Metric) -> Metric:
         return metric
+
 
 class PingEndpoint(Endpoint):
     def __init__(self, name, baseUrl):
@@ -42,22 +45,23 @@ class PingEndpoint(Endpoint):
                 metric.add_sample(
                     "freqtrade_up",
                     value=float(1),
-                    labels={"name":self.name}
+                    labels={"name": self.name}
                 )
             else:
                 metric.add_sample(
                     "freqtrade_up",
                     value=0.0,
-                    labels={"name":self.name}
+                    labels={"name": self.name}
                 )
         return metric
+
 
 class ProfitEndpoint(Endpoint):
     def __init__(self, name, baseUrl):
         self.name = name
         self.url = "{}/{}".format(baseUrl, "profit")
 
-    def collectMetrics(self, response:dict, metric:Metric) -> Metric:
+    def collectMetrics(self, response: dict, metric: Metric) -> Metric:
         for key in response.keys():
             freqtrademetric = "_".join(["freqtrade", key])
             if response[key] is not None:
@@ -65,18 +69,19 @@ class ProfitEndpoint(Endpoint):
                     metric.add_sample(
                         freqtrademetric,
                         value=float(response[key]),
-                        labels={"name":self.name}
+                        labels={"name": self.name}
                     )
                 except Exception:
                     pass
         return metric
+
 
 class StatusEndpoint(Endpoint):
     def __init__(self, name, baseUrl):
         self.name = name
         self.url = "{}/{}".format(baseUrl, "status")
 
-    def collectMetrics(self, data:dict, metric:Metric) -> Metric:
+    def collectMetrics(self, data: dict, metric: Metric) -> Metric:
         for trade in data:
             for key in ["trade_id",
                         "amount",
@@ -113,11 +118,12 @@ class StatusEndpoint(Endpoint):
                     metric.add_sample(
                         freqtrademetric,
                         value=float(trade[key]),
-                        labels={"name":self.name, "pair":trade["pair"], "strategy":trade["strategy"]}
+                        labels={"name": self.name, "pair": trade["pair"], "strategy": trade["strategy"]}
                     )
                 except Exception:
                     pass
         return metric
+
 
 class Bot:
     """ asdfasd"""
@@ -133,39 +139,45 @@ class Bot:
     def __init__(self, url, name):
         self.name = name
 
-        self.url = "http://"+url+"/api/v1"
+        self.url = os.getenv("HTTP_SCHEME") + "://" + url + "/api/v1"
         self.endpoints = []
 
         try:
+            self.api_username = os.getenv('API_USER')
+            self.api_password = os.getenv('API_PASSWORD')
+            encoded_bytes = base64.b64encode((self.api_username + ":" + self.api_password).encode("utf-8"))
+            b64_authorization_header = str(encoded_bytes, "utf-8")
+
             response = requests.request("POST",
-                    self.url + "/token/login",
-                    headers = {
-                      'Authorization': 'Basic ZnJlcXRyYWRlcjpTdXBlclNlY3VyZVBhc3N3b3Jk'
-                    },
-                    data={}
-                    )
+                                        self.url + "/token/login",
+                                        headers={
+                                            'Authorization': 'Basic ' + b64_authorization_header
+                                        },
+                                        data={}
+                                        )
             log.info("Connected to {}, adding endpoints...".format(self.name))
             self.access_token = response.json()["access_token"]
             self.refresh_token = response.json()["refresh_token"]
-            self.headers = {"Authorization": "Bearer "+self.access_token}
+            self.headers = {"Authorization": "Bearer " + self.access_token}
             self.endpoints.append(ProfitEndpoint(name=self.name, baseUrl=self.url))
             self.endpoints.append(StatusEndpoint(name=self.name, baseUrl=self.url))
             self.endpoints.append(PingEndpoint(name=self.name, baseUrl=self.url))
         except Exception:
-            log.error("Could not create a connection to bot {} under {}, check if its API is running properly".format(self.name, self.url))
+            log.error("Could not create a connection to bot {} under {}, check if its API is running properly".format(
+                self.name, self.url))
 
     def refreshToken(self):
         url = "{}/token/refresh".format(self.url)
         log.info("Refreshing token for {} over {}".format(self.url, url))
-        payload={}
+        payload = {}
         headers = {
-          'Authorization': 'Bearer {}'.format(self.refresh_token)
-       }
+            'Authorization': 'Bearer {}'.format(self.refresh_token)
+        }
         response = requests.request("POST", url, headers=headers, data=payload).json()
         self.headers = {
-          'Authorization': 'Bearer '+response["access_token"]
-       }
-    
+            'Authorization': 'Bearer ' + response["access_token"]
+        }
+
     def addMetrics(self, metric: Metric) -> Metric:
         """ Adds metrics to main thread Metric object"""
         if not self.access_token:
@@ -176,15 +188,15 @@ class Bot:
                 self.__init__(self.url, self.name)
             else:
                 self.connection_retry_counter += 1
-        else:    
+        else:
             for endpoint in self.endpoints:
-                #r = None
-                #try:
+                # r = None
+                # try:
                 r = requests.request("GET", endpoint.url, headers=self.headers, data={})
-                #except Exception:
+                # except Exception:
                 #    log.info("Skipping endpoint {} as we got an exception.".format(endpoint.url))
                 #    continue
-                #if r:
+                # if r:
                 if "detail" in r.json() or r.status_code == 401:
                     log.info("Refreshing token as {} has a token timeout".format(self.url))
                     self.refreshToken()
@@ -192,8 +204,10 @@ class Bot:
                 metric = endpoint.collectMetrics(r.json(), metric)
         return metric
 
+
 class Collector:
     """ Collector for running bots """
+
     def __init__(self):
         self.bots = []
         for url in BOTS.keys():
